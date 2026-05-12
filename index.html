@@ -3,27 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebCraft Pro | Vylepšená Verze</title>
-    <link rel="stylesheet" href="style.css">
+    <title>WebCraft Pro</title>
+    <link rel="stylesheet" href="./style.css">
 </head>
 <body>
     <div id="crosshair"></div>
     <div id="ui">
-        <div class="slot active" data-slot="1">1</div>
-        <div class="slot" data-slot="2">2</div>
-        <div class="slot" data-slot="3">3</div>
+        <div class="slot active" id="s1">1: TRÁVA</div>
+        <div class="slot" id="s2">2: HLÍNA</div>
+        <div class="slot" id="s3">3: KÁMEN</div>
     </div>
-    <div id="stats"></div>
 
+    <!-- Definice knihovny Three.js -->
     <script type="importmap">
-        {
-            "imports": {
-                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
-            }
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
         }
+    }
     </script>
-    <!-- Hlavní modul hry -->
-    <script type="module" src="js/main.js"></script>
+
+    <!-- Načtení hlavního skriptu -->
+    <script type="module" src="./js/main.js"></script>
 </body>
 </html>
