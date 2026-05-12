@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <title>WebCraft JS - Jednoduchý Minecraft</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #87CEEB; font-family: sans-serif; }
+        #crosshair {
+            position: absolute; top: 50%; left: 50%;
+            width: 20px; height: 20px;
+            border: 2px solid white;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+        }
+        #instructions {
+            position: absolute; bottom: 20px; left: 20px;
+            color: white; background: rgba(0,0,0,0.5);
+            padding: 15px; border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="crosshair"></div>
+    <div id="instructions">
+        <strong>Ovládání:</strong><br>
+        W, A, S, D - Pohyb | Mezerník - Skok<br>
+        Levé kliknutí - Zničit blok | Pravé kliknutí - Položit blok<br>
+        Klikni kamkoliv pro spuštění!
+    </div>
+
+    <!-- Načtení Three.js knihovny z CDN -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+
+        // --- NASTAVENÍ SCÉNY ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87CEEB); // Obloha
+        scene.fog = new THREE.FogExp2(0x87CEEB, 0.02);
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.body.appendChild(renderer.domElement);
+
+        // --- SVĚTLO ---
+        const ambientLight = new THREE.AmbientLight(0xcccccc, 1);
+        scene.add(ambientLight);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        directionalLight.position.set(10, 20, 10);
+        scene.add(directionalLight);
+
+        // --- OVLÁDÁNÍ ---
+        const controls = new PointerLockControls(camera, document.body);
+        document.body.addEventListener('click', () => controls.lock());
+
+        let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, canJump = false;
+        const velocity = new THREE.Vector3();
+        const direction = new THREE.Vector3();
+
+        const onKeyDown = (e) => {
+            switch (e.code) {
+                case 'KeyW': moveForward = true; break;
+                case 'KeyA': moveLeft = true; break;
+                case 'KeyS': moveBackward = true; break;
+                case 'KeyD': moveRight = true; break;
+                case 'Space': if (canJump) velocity.y += 15; canJump = false; break;
+            }
+        };
+        const onKeyUp = (e) => {
+            switch (e.code) {
+                case 'KeyW': moveForward = false; break;
+                case 'KeyA': moveLeft = false; break;
+                case 'KeyS': moveBackward = false; break;
+                case 'KeyD': moveRight = false; break;
+            }
+        };
+        document.addEventListener('keydown', onKeyDown);
+        document.addEventListener('keyup', onKeyUp);
+
+        // --- GENERACE SVĚTA ---
+        const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+        const grassMaterial = new THREE.MeshLambertMaterial({ color: 0x4d9e3d });
+        const dirtMaterial = new THREE.MeshLambertMaterial({ color: 0x8b4513 });
+        
+        const blocks = [];
+
+        for (let x = -15; x < 15; x++) {
+            for (let z = -15; z < 15; z++) {
+                const h = Math.floor(Math.random() * 2); // Náhodný terén
+                for (let y = 0; y <= h; y++) {
+                    const block = new THREE.Mesh(boxGeo, y === h ? grassMaterial : dirtMaterial);
+                    block.position.set(x, y, z);
+                    scene.add(block);
+                    blocks.push(block);
+                }
+            }
+        }
+
+        // --- INTERAKCE (TĚŽBA A STAVĚNÍ) ---
+        const raycaster = new THREE.Raycaster();
+        
+        window.addEventListener('mousedown', (e) => {
+            if (!controls.isLocked) return;
+
+            raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+            const intersects = raycaster.intersectObjects(blocks);
+
+            if (intersects.length > 0) {
+                const intersect = intersects[0];
+                
+                if (e.button === 0) { // Levý klik - Smazat
+                    scene.remove(intersect.object);
+                    blocks.splice(blocks.indexOf(intersect.object), 1);
+                } else if (e.button === 2) { // Pravý klik - Stavět
+                    const pos = intersect.point.add(intersect.face.normal.clone().multiplyScalar(0.5));
+                    const newBlock = new THREE.Mesh(boxGeo, grassMaterial);
+                    newBlock.position.set(Math.round(pos.x), Math.round(pos.y), Math.round(pos.z));
+                    scene.add(newBlock);
+                    blocks.push(newBlock);
+                }
+            }
+        });
+
+        // Zakázání kontextového menu pro pravý klik
+        window.addEventListener('contextmenu', e => e.preventDefault());
+
+        // --- HLAVNÍ SMYČKA ---
+        camera.position.y = 5;
+        let prevTime = performance.now();
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const time = performance.now();
+            const delta = (time - prevTime) / 1000;
+
+            if (controls.isLocked) {
+                // Fyzika pohybu
+                velocity.x -= velocity.x * 10.0 * delta;
+                velocity.z -= velocity.z * 10.0 * delta;
+                velocity.y -= 9.8 * 10.0 * delta; // Gravitace
+
+                direction.z = Number(moveForward) - Number(moveBackward);
+                direction.x = Number(moveRight) - Number(moveLeft);
+                direction.normalize();
+
+                if (moveForward || moveBackward) velocity.z -= direction.z * 400.0 * delta;
+                if (moveLeft || moveRight) velocity.x -= direction.x * 400.0 * delta;
+
+                controls.moveRight(-velocity.x * delta);
+                controls.moveForward(-velocity.z * delta);
+
+                camera.position.y += (velocity.y * delta);
+
+                if (camera.position.y < 2) {
+                    velocity.y = 0;
+                    camera.position.y = 2;
+                    canJump = true;
+                }
+            }
+
+            prevTime = time;
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // Responzivita okna
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+    </script>
+</body>
+</html>
